@@ -5,8 +5,8 @@ Closure Compiler.
 
 ### Prerequisites:
 
-    * Java: You need to have ```java``` in your $PATH. The Java Runtime
-      Environment is required to run the closure compiler.
+    * Java: The Java Runtime Environment is required to run the
+      closure compiler. You need to have java in your $PATH.
 
 ### Installation:
 
