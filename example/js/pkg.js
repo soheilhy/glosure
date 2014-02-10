@@ -4,4 +4,3 @@ pkg.someFunc = function() {
   alert('Hello World!');
 }
 
-
