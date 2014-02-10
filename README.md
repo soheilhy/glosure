@@ -27,6 +27,14 @@ http.Handle("/", GlosureServerWithRoot("./example/js/"))
 http.ListenAndServe(":8080", nil);
 ```
 
+```GlosureServer``` serves only the requests for compiled
+JavaScript (by default ```*.min.js```) and returns error otherwise.
+For example, ```http://localhost:8080/sample.min.js``` returns the 
+compiled version of ```./example/js/sample.js```, but
+dialing ```http://localhost:8080/sample.js``` results in a 404.
+You can change this behavior by setting a customized
+handler in ```cc.ErrorHandler```.
+
 For a more comprehensive example, take a look at
 ```example/server.go```. You can run the example by:
 
