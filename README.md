@@ -1,5 +1,5 @@
-Glosure: Closure Compiler for the Go programming language.
-==========================================================
+Glosure: Closure Compiler for Go
+================================
 Glosure is a simple http.Handler for compiling JavaScript using the
 Closure Compiler.
 
