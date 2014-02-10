@@ -13,8 +13,7 @@ Closure Compiler.
     # go get github.com/soheilhy/glosure
 
 ### Example:
-Take a look at ```example/server.go``` directory. You can run the
-example by:
+Take a look at ```example/server.go```. You can run the example by:
 
     # go run server.go --logtostderr -v=1
 
