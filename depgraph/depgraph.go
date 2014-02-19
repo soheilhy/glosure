@@ -46,7 +46,7 @@ func (g *DependencyGraph) AddDependency(from string, to string) error {
     return errors.New("Circular dependency between " + from + " and " + to)
   }
 
-  fromNode.Dependencies.PushFront(toNode)
+  fromNode.Dependencies.PushBack(toNode)
   return nil
 }
 
@@ -60,10 +60,17 @@ func (g *DependencyGraph) GetDependenciesOfPackage(pkg string) []*Node {
 }
 
 func (g *DependencyGraph) GetDependencies(nodes []*Node) []*Node {
-  deps := []*Node{}
+  return g.getDependencies(nodes, make([]*Node, 0))
+}
+
+func (g *DependencyGraph) getDependencies(nodes []*Node, deps []*Node) []*Node {
   for _, node := range nodes {
+    if contains(deps, node) {
+      continue
+    }
+
     for e := node.Dependencies.Front(); e != nil; e = e.Next() {
-      eDeps := g.GetDependencies([]*Node{e.Value.(*Node)})
+      eDeps := g.getDependencies([]*Node{e.Value.(*Node)}, deps)
       for _, dependencyNode := range eDeps {
         if contains(deps, dependencyNode) {
           continue
@@ -92,17 +99,38 @@ func contains(nodes []*Node, newNode *Node) bool {
   return false
 }
 
-func (n *Node) isRecursivelyDependentOn(pkg string) bool {
-  if pkg == n.Pkg {
-    return true
-  }
-
-  for e := n.Dependencies.Front(); e != nil; e = e.Next() {
-    if e.Value.(*Node).isRecursivelyDependentOn(pkg) {
+func containsPkg(nodes []*Node, pkg string) bool {
+  for _, node := range nodes {
+    if node.Pkg == pkg {
       return true
     }
   }
 
+  return false
+}
+
+
+func (n *Node) isRecursivelyDependentOn(pkg string) bool {
+  return n.isRecursivelyDependentOnWithCache(pkg, make([]*Node, 0))
+}
+
+func (n *Node) isRecursivelyDependentOnWithCache(pkg string,
+                                                 checked []*Node) bool {
+  if pkg == n.Pkg {
+    return true;
+  }
+
+  if containsPkg(checked, pkg) {
+    return false;
+  }
+
+  for e := n.Dependencies.Front(); e != nil; e = e.Next() {
+    if e.Value.(*Node).isRecursivelyDependentOnWithCache(pkg, checked) {
+      return true
+    }
+  }
+
+  checked = append(checked, n)
   return false
 }
 

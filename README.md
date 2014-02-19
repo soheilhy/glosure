@@ -15,15 +15,15 @@ Closure Compiler.
 ### Example:
 First create a closure compiler, and then serve HTTP requests: 
 ```go
-cc := NewCompiler("./example/js/")
+cc := glosure.NewCompiler("./example/js/")
 // Set compiler options.
-http.Handle("/", GlosureServer(cc))
+http.Handle("/", glosure.GlosureServer(cc))
 http.ListenAndServe(":8080", nil);
 ```
 
 Or even simpler if you do not need to customize the compiler:
 ```go
-http.Handle("/", GlosureServerWithRoot("./example/js/"))
+http.Handle("/", glosure.GlosureServerWithRoot("./example/js/"))
 http.ListenAndServe(":8080", nil);
 ```
 
