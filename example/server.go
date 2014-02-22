@@ -29,13 +29,14 @@ import (
 func main() {
   debug := flag.Bool("debug", false, "run the compiler in debug mode.")
   advanced := flag.Bool("advanced", false, "use advanced optimizations.")
+  noJava := flag.Bool("nojava", false, "use closure rest api instead of java.")
 
   // Parse the flags if you want to use glog.
   flag.Parse()
 
   // Creat a new compiler.
   cc := glosure.NewCompiler("./js/")
-  if debug != nil && *debug {
+  if *debug {
     cc.Debug()
   } else {
     // Use strict mode for the closure compiler. All warnings are treated as
@@ -43,10 +44,12 @@ func main() {
     cc.Strict()
   }
 
-  if advanced != nil && *advanced {
+  if *advanced {
     // Use advanced optimizations.
     cc.CompilationLevel = glosure.AdvancedOptimizations
   }
+
+  cc.UseClosureApi = *noJava
 
   http.Handle("/", glosure.GlosureServer(cc))
   fmt.Println("Checkout http://localhost:8080/sample.min.js?force=1")

@@ -1,19 +1,21 @@
 Glosure: Closure Compiler for Go
 ================================
-Glosure is a simple http.Handler for compiling JavaScript using the
-Closure Compiler.
+Glosure is a simple ```http.Handler``` for compiling JavaScript using the
+Closure Compiler. Glosure can use either the
+[closure compiler application](https://developers.google.com/closure/compiler/docs/gettingstarted_app "Closure Application")
+(requires Java Runtime Environment) or the closure
+[REST API](https://developers.google.com/closure/compiler/docs/gettingstarted_api "Closure REST API")
+(used if ```java``` is not in ```$PATH```).
 
-### Prerequisites:
-
-    * Java: The Java Runtime Environment is required to run the
-      closure compiler. You need to have java in your $PATH.
+Note that the REST API has limitations and must not be suitable for
+large-scale JavaScript projects.
 
 ### Installation:
 
     # go get github.com/soheilhy/glosure
 
 ### Example:
-First create a closure compiler, and then serve HTTP requests: 
+First create a closure compiler, and then serve HTTP requests:
 ```go
 cc := glosure.NewCompiler("./example/js/")
 // Set compiler options.
@@ -24,6 +26,14 @@ http.ListenAndServe(":8080", nil);
 Or even simpler if you do not need to customize the compiler:
 ```go
 http.Handle("/", glosure.GlosureServerWithRoot("./example/js/"))
+http.ListenAndServe(":8080", nil);
+```
+
+Or to enforce using the closure REST API:
+```
+cc := glosure.NewCompiler("./example/js/")
+cc.UseClosureApi = true
+http.Handle("/", glosure.GlosureServer(cc))
 http.ListenAndServe(":8080", nil);
 ```
 

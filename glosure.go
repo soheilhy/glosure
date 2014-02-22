@@ -134,6 +134,10 @@ type Compiler struct {
   // Compile source javascripts if not compiled or out of date.
   CompileOnDemand bool
 
+  // Whether to use closure REST api instead of closure jar file. This is
+  // automatically set to true when java is not installed on the machine.
+  UseClosureApi bool
+
   // Closure compiler compilation level. Valid levels are: WhiteSpaceOnly,
   // SimpleOptimizations (default), AdvancedOptimizations.
   CompilationLevel CompilationLevel
@@ -169,6 +173,7 @@ type Compiler struct {
 }
 
 func NewCompiler(root string) Compiler {
+  _, javaLookupErr := exec.LookPath("java")
   return Compiler{
     Root: root,
     ErrorHandler: http.NotFound,
@@ -177,6 +182,7 @@ func NewCompiler(root string) Compiler {
     WarningLevel: Default,
     SourceSuffix: DefaultSourceSuffix,
     CompileOnDemand: true,
+    UseClosureApi: javaLookupErr != nil,
     fileServer: http.FileServer(http.Dir(root)),
     depg: depgraph.New(),
     mutex: sync.Mutex{},
@@ -373,12 +379,7 @@ func (cc *Compiler) Compile(relOutPath string) error {
   cc.mutex.Lock()
   defer cc.mutex.Unlock()
 
-  args := []string{"-jar", cc.CompilerJarPath}
-
-  for _, b := range cc.BaseFiles {
-    args = append(args, "--js", b)
-  }
-
+  jsFiles := make([]string, 0)
   if useClosureDeps {
     if len(cc.depg.Nodes) == 0 {
       cc.reloadDependencyGraph()
@@ -395,21 +396,40 @@ func (cc *Compiler) Compile(relOutPath string) error {
     }
 
     deps := cc.depg.GetDependencies(nodes)
-    for _, dep := range deps {
-      args = append(args, "--js", dep.Path)
-    }
-
-    if cc.OnlyClosureDependencies {
-      args = append(args,
-                    "--manage_closure_dependencies", "true",
-                    "--only_closure_dependencies", "true")
-
-      for _, srcPkg := range srcPkgs {
-        args = append(args, "--closure_entry_point", srcPkg)
-      }
+    for _, dep := range(deps) {
+      jsFiles = append(jsFiles, dep.Path)
     }
   } else {
-    args = append(args, "--js", srcPath)
+    jsFiles = append(jsFiles, srcPath)
+  }
+
+  if cc.UseClosureApi {
+    return cc.CompileWithClosureApi(jsFiles, nil, outPath)
+  }
+
+  return cc.CompileWithClosureJar(jsFiles, srcPkgs, outPath)
+}
+
+func (cc *Compiler) CompileWithClosureJar(jsFiles []string, entryPkgs []string,
+                                          outPath string) error {
+  args := []string{"-jar", cc.CompilerJarPath}
+
+  for _, b := range cc.BaseFiles {
+    args = append(args, "--js", b)
+  }
+
+  for _, file := range jsFiles {
+    args = append(args, "--js", file)
+  }
+
+  if len(entryPkgs) != 0 && cc.OnlyClosureDependencies {
+    args = append(args,
+    "--manage_closure_dependencies", "true",
+    "--only_closure_dependencies", "true")
+
+    for _, entryPkg := range entryPkgs {
+      args = append(args, "--closure_entry_point", entryPkg)
+    }
   }
 
   for _, e := range cc.Externs {
@@ -466,6 +486,61 @@ func (cc *Compiler) Compile(relOutPath string) error {
 
   err = cmd.Wait()
   return err
+}
+
+func (cc *Compiler) CompileWithClosureApi(jsFiles []string, entryPkgs []string,
+                                          outPath string) error {
+  var srcBuffer bytes.Buffer
+  for _, file := range(jsFiles) {
+    content, err := ioutil.ReadFile(file)
+    if err != nil {
+      // We should never reach this line. This is just an assert.
+      panic("Cannot read a file: " + file)
+    }
+    srcBuffer.Write(content)
+  }
+
+  var extBuffer bytes.Buffer
+  for _, file := range(cc.Externs) {
+    content, err := ioutil.ReadFile(file)
+    if err != nil {
+      panic("Cannot read an extern file: " + file)
+    }
+    extBuffer.Write(content)
+  }
+
+  res, err := cc.dialClosureApi(srcBuffer.String(), extBuffer.String())
+  if err != nil {
+    return err
+  }
+
+  if len(res.Errors) != 0 {
+    for _, cErr := range(res.Errors) {
+      fmt.Fprintf(os.Stderr, "Compilation error: %s\n\t%s\n\t%s\n",
+                  cErr.Error, cErr.Line, errAnchor(cErr.Charno))
+
+    }
+    return errors.New("Compilation error.")
+  }
+
+  if len(res.Warnings) != 0 {
+    for _, cWarn := range(res.Warnings) {
+      fmt.Fprintf(os.Stderr, "Compilation warning: %s\n\t%s\n\t%s\n",
+                  cWarn.Warning, cWarn.Line, errAnchor(cWarn.Charno))
+    }
+  }
+
+  ioutil.WriteFile(outPath, []byte(res.CompiledCode), 0644)
+
+  return nil
+}
+
+func errAnchor(charNo int) string {
+  indent := charNo - 1
+  if indent < 0 {
+    indent = 0
+  }
+  return strings.Repeat("-", int(indent)) + "^"
 }
 
 func concatContent(nodes []*depgraph.Node) string {
@@ -542,21 +617,28 @@ type ClosureWarning struct {
   Line string
 }
 
-func getClosureApiParams(src string, cc *Compiler) url.Values {
+func (cc *Compiler) getClosureApiParams(src string, ext string) url.Values {
   params := make(url.Values)
   params.Set("js_code", src)
+
+  if len(ext) > 0 {
+    params.Set("js_externs", ext)
+  }
+
   params.Set("output_format", "json")
   params.Add("output_info", "compiled_code")
   params.Add("output_info", "warnings")
   params.Add("output_info", "errors")
+  params.Set("warning_level", string(cc.WarningLevel))
   params.Set("compilation_level", string(cc.CompilationLevel))
   return params
 }
 
-func dialClosureApi(src string, cc *Compiler) (*ClosureApiResult, error) {
+func (cc *Compiler) dialClosureApi(src string, ext string) (*ClosureApiResult,
+                                                            error) {
   const URL = "http://closure-compiler.appspot.com/compile"
 
-  params := getClosureApiParams(src, cc)
+  params := cc.getClosureApiParams(src, ext)
   resp, err := http.PostForm(URL, params)
   if err != nil {
     return nil, errors.New("Cannot send a compilation request to " + URL)

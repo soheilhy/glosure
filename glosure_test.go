@@ -24,7 +24,7 @@ import (
 
 func TestDialClosureApi(t *testing.T) {
   cc := NewCompiler(".")
-  res, err := dialClosureApi("var i = 0; i += 1; window.alert(1)", &cc)
+  res, err := cc.dialClosureApi("var i = 0; i += 1; window.alert(1)", "")
   if err != nil {
     t.Error("Error(s) in closure api call: ", res.Errors)
   }
@@ -57,8 +57,23 @@ func TestGetClosurePackage(t *testing.T) {
   }
 }
 
-func TestCompiler(t *testing.T) {
+func TestCompilerJar(t *testing.T) {
   cc := NewCompiler("./test_resources")
+  err := cc.Compile("pkg1.min.js")
+  if err != nil {
+    t.Error(err)
+    return
+  }
+
+  _, err = ioutil.ReadFile("./test_resources/pkg1.min.js")
+  if err != nil {
+    t.Error(err)
+  }
+}
+
+func TestCompilerApi(t *testing.T) {
+  cc := NewCompiler("./test_resources")
+  cc.UseClosureApi = true
   err := cc.Compile("pkg1.min.js")
   if err != nil {
     t.Error(err)
