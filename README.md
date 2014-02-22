@@ -30,7 +30,7 @@ http.ListenAndServe(":8080", nil);
 ```
 
 Or to enforce using the closure REST API:
-```
+```go
 cc := glosure.NewCompiler("./example/js/")
 cc.UseClosureApi = true
 http.Handle("/", glosure.GlosureServer(cc))
