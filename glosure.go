@@ -358,15 +358,17 @@ func (cc *Compiler) downloadCompilerJar() (string, error) {
 }
 
 func (cc *Compiler) Compile(relOutPath string) error {
-  _, err := exec.LookPath("java")
-  if err != nil {
-    glog.Fatal("No java found in $PATH.")
-  }
-
-  if cc.CompilerJarPath == "" {
-    cc.CompilerJarPath, err = cc.downloadCompilerJar()
+  if !cc.UseClosureApi {
+    _, err := exec.LookPath("java")
     if err != nil {
-      glog.Fatal("Cannot download the closure compiler.")
+      glog.Fatal("No java found in $PATH.")
+    }
+
+    if cc.CompilerJarPath == "" {
+      cc.CompilerJarPath, err = cc.downloadCompilerJar()
+      if err != nil {
+        glog.Fatal("Cannot download the closure compiler.")
+      }
     }
   }
 
