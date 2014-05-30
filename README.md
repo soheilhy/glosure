@@ -7,7 +7,7 @@ Closure Compiler. Glosure can use either the
 [REST API](https://developers.google.com/closure/compiler/docs/gettingstarted_api "Closure REST API")
 (used if ```java``` is not in ```$PATH```).
 
-Note that the REST API has limitations and must not be suitable for
+Note that the REST API has limitations and is not be suitable for
 large-scale JavaScript projects.
 
 ### Installation:
